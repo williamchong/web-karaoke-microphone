@@ -20,6 +20,10 @@
           迴響延遲:
           <input v-model="delayTime" type="range" min="0" max="1" step="0.01" class="w-full">
         </label>
+        <label class="block">
+          迴響長度:
+          <input v-model="reverbLength" type="range" min="0.1" max="5" step="0.1" class="w-full">
+        </label>
       </div>
     </div>
   </div>
@@ -30,6 +34,7 @@ const isActive = ref(false)
 const reverbAmount = ref(0.3)
 const delayTime = ref(0.005)
 const gainAmount = ref(1.2)
+const reverbLength = ref(2.0)
 let audioContext: AudioContext | null = null
 let stream: MediaStream | null = null
 let source: MediaStreamAudioSourceNode | null = null
@@ -44,7 +49,7 @@ const initAudio = async () => {
   mainGainNode.gain.value = gainAmount.value
 
   reverb = audioContext.createConvolver()
-  const impulseResponse = await createImpulseResponse(audioContext)
+  const impulseResponse = await createImpulseResponse(audioContext, reverbLength.value)
   reverb.buffer = impulseResponse
 
   delay = audioContext.createDelay(1.0)
@@ -56,10 +61,10 @@ const initAudio = async () => {
   reverb.connect(audioContext.destination)
 }
 
-const createImpulseResponse = async (context: AudioContext) => {
+const createImpulseResponse = async (context: AudioContext, length: number) => {
   const sampleRate = context.sampleRate
-  const length = sampleRate / 2
-  const impulseResponse = context.createBuffer(2, length, sampleRate)
+  const bufferLength = Math.floor(sampleRate * length)
+  const impulseResponse = context.createBuffer(2, bufferLength, sampleRate)
 
   for (let channel = 0; channel < 2; channel++) {
     const channelData = impulseResponse.getChannelData(channel)
@@ -122,6 +127,13 @@ watch(reverbAmount, (newValue) => {
 watch(delayTime, (newValue) => {
   if (delay) {
     delay.delayTime.value = newValue
+  }
+})
+
+watch(reverbLength, async (newValue) => {
+  if (audioContext && reverb && source) {
+    const newImpulseResponse = await createImpulseResponse(audioContext, newValue)
+    reverb.buffer = newImpulseResponse
   }
 })
 </script>
